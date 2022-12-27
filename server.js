@@ -14,10 +14,8 @@ app.use(express.json())
 app.use(express.urlencoded({extended: true}))
 
 app.get("/", (req, res) =>{
-    res.json({message: "Wellcome Denrus, he he"})
+    res.json({message: "Wellcome Denrus"})
 })
-
-require("./app/routes/tutorial.routes")(app)
 
 const PORT = process.env.PORT || 8080
 app.listen(PORT, () => {

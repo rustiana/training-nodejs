@@ -1,129 +1,152 @@
-const Tutorial  = require("../models/tutorial.model");
+const db = require("../models")
+const Tutorial =  db.tutorials
+const Op = db.Sequelize.Op
 
+// Create and Save a new Tutorial
 exports.create = (req, res) => {
     // Validate request
-    if (!req.body) {
-      res.status(400).send({
-        message: "Content can not be empty!"
-      });
+    if (!req.body.title) {
+        res.status(400).send({
+            message: "Content can not be empty!"
+        });
+        return;
     }
-  
+
     // Create a Tutorial
-    const tutorial = new Tutorial({
-      title: req.body.title,
-      description: req.body.description,
-      published: req.body.published || false
-    });
-  
+    const tutorial = {
+        title: req.body.title,
+        description: req.body.description,
+        published: req.body.published ? req.body.published : false
+    };
+
     // Save Tutorial in the database
-    Tutorial.create(tutorial, (err, data) => {
-      if (err)
+    Tutorial.create(tutorial)
+        .then(data => {
+            res.send(data);
+        })
+        .catch(err => {
         res.status(500).send({
-          message:
+            message:
             err.message || "Some error occurred while creating the Tutorial."
         });
-      else res.send(data);
     });
-};
+}
 
-// Retrieve all Tutorials from the database (with condition).
+// Retrieve all Tutorials from the database.
 exports.findAll = (req, res) => {
     const title = req.query.title;
+    var condition = title ? { title: { [Op.like]: `%${title}%` } } : null;
 
-    Tutorial.getAll(title, (err, data) => {
-      if (err)
+    Tutorial.findAll({ where: condition })
+        .then(data => {
+        res.send(data);
+        })
+        .catch(err => {
         res.status(500).send({
-          message:
+            message:
             err.message || "Some error occurred while retrieving tutorials."
         });
-      else res.send(data);
     });
-};
+}
 
-// Find a single Tutorial with a id
+// Find a single Tutorial with an id
 exports.findOne = (req, res) => {
-    Tutorial.findById(req.params.id, (err, data) => {
-        if (err) {
-          if (err.kind === "not_found") {
-            res.status(404).send({
-              message: `Not found Tutorial with id ${req.params.id}.`
-            });
-          } else {
-            res.status(500).send({
-              message: "Error retrieving Tutorial with id " + req.params.id
-            });
-          }
-        } else res.send(data);
-    });
-};
+    const id = req.params.id;
 
-// find all published Tutorials
-exports.findAllPublished = (req, res) => {
-    Tutorial.getAllPublished((err, data) => {
-        if (err)
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while retrieving tutorials."
-          });
-        else res.send(data);
-    });
-};
-
-// Update a Tutorial identified by the id in the request
-exports.update = (req, res) => {
-  // Validate Request
-  if (!req.body) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
-  }
-
-  console.log(req.body);
-
-  Tutorial.updateById(
-    req.params.id,
-    new Tutorial(req.body),
-    (err, data) => {
-      if (err) {
-        if (err.kind === "not_found") {
-          res.status(404).send({
-            message: `Not found Tutorial with id ${req.params.id}.`
-          });
+    Tutorial.findByPk(id)
+        .then(data => {
+        if (data) {
+            res.send(data);
         } else {
-          res.status(500).send({
-            message: "Error updating Tutorial with id " + req.params.id
-          });
+            res.status(404).send({
+            message: `Cannot find Tutorial with id=${id}.`
+            });
         }
-      } else res.send(data);
-    }
-  );
-};
+        })
+        .catch(err => {
+        res.status(500).send({
+            message: "Error retrieving Tutorial with id=" + id
+        });
+    });
+}
+
+// Update a Tutorial by the id in the request
+exports.update = (req, res) => {
+    const id = req.params.id;
+
+    Tutorial.update(req.body, {
+        where: { id: id }
+    })
+        .then(num => {
+        if (num == 1) {
+            res.send({
+            message: "Tutorial was updated successfully."
+            });
+        } else {
+            res.send({
+            message: `Cannot update Tutorial with id=${id}. Maybe Tutorial was not found or req.body is empty!`
+            });
+        }
+        })
+        .catch(err => {
+        res.status(500).send({
+            message: "Error updating Tutorial with id=" + id
+        });
+    });
+}
 
 // Delete a Tutorial with the specified id in the request
 exports.delete = (req, res) => {
-    Tutorial.remove(req.params.id, (err, data) => {
-        if (err) {
-          if (err.kind === "not_found") {
-            res.status(404).send({
-              message: `Not found Tutorial with id ${req.params.id}.`
+    const id = req.params.id;
+
+    Tutorial.destroy({
+        where: { id: id }
+    })
+        .then(num => {
+        if (num == 1) {
+            res.send({
+            message: "Tutorial was deleted successfully!"
             });
-          } else {
-            res.status(500).send({
-              message: "Could not delete Tutorial with id " + req.params.id
+        } else {
+            res.send({
+            message: `Cannot delete Tutorial with id=${id}. Maybe Tutorial was not found!`
             });
-          }
-        } else res.send({ message: `Tutorial was deleted successfully!` });
+        }
+        })
+        .catch(err => {
+        res.status(500).send({
+            message: "Could not delete Tutorial with id=" + id
+        });
     });
-};
+}
 
 // Delete all Tutorials from the database.
 exports.deleteAll = (req, res) => {
-    Tutorial.removeAll((err, data) => {
-        if (err)
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while removing all tutorials."
-          });
-        else res.send({ message: `All Tutorials were deleted successfully!` });
+    Tutorial.destroy({
+        where: {},
+        truncate: false
+    })
+    .then(nums => {
+        res.send({ message: `${nums} Tutorials were deleted successfully!` });
+    })
+    .catch(err => {
+        res.status(500).send({
+        message:
+            err.message || "Some error occurred while removing all tutorials."
+        });
     });
-};
+}
+
+// Find all published Tutorials
+exports.findAllPublished = (req, res) => {
+    Tutorial.findAll({ where: { published: true } })
+    .then(data => {
+      res.send(data);
+    })
+    .catch(err => {
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while retrieving tutorials."
+      });
+    });
+}
